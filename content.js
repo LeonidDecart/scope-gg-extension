@@ -1429,7 +1429,7 @@
                             aspectRatio: "16:9",
                             opponentPov: false
                         }, 'playerPov');
-                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        await new Promise(resolve => setTimeout(resolve, 1500));
                         currentStep++;
                     }
 
@@ -1443,7 +1443,7 @@
                             aspectRatio: "16:9",
                             opponentPov: true
                         }, 'opponentPov');
-                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        await new Promise(resolve => setTimeout(resolve, 1500));
                         currentStep++;
                     }
                 }
