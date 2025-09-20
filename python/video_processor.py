@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 import tempfile
+import time
 
 def print_banner():
     """Выводит баннер программы"""
@@ -52,44 +53,57 @@ def get_json_from_user() -> Dict[str, Any]:
         sys.exit(1)
 
 def download_video(url: str, filename: str) -> bool:
-    """Скачивает видео по URL"""
-    print(f"⬇️  Скачиваю: {filename}")
+    """
+    Скачивает файл по URL, используя curl.
+    """
+    print(f"⬇️  Скачиваю: {os.path.basename(filename)}")
     
     try:
-        # Используем wget для скачивания
-        result = subprocess.run([
-            'wget', '--quiet', '--show-progress', 
-            '--output-document', filename, url
-        ], capture_output=True, text=True)
+        # Скачиваем файл напрямую
+        result = subprocess.run(
+            ['curl', '--silent', '--show-error', '--location', '--output', filename, url],
+            capture_output=True,
+            text=True
+        )
         
         if result.returncode == 0:
-            print(f"✅ Успешно скачано: {filename}")
+            print(f"✅ Успешно скачано: {os.path.basename(filename)}")
             return True
         else:
-            print(f"❌ Ошибка скачивания {filename}: {result.stderr}")
+            print(f"❌ Ошибка скачивания {os.path.basename(filename)}: {result.stderr}")
+            # Удаляем пустой или поврежденный файл
+            if os.path.exists(filename):
+                os.unlink(filename)
             return False
             
     except FileNotFoundError:
-        print("❌ wget не найден. Попробуем использовать curl...")
-        try:
-            result = subprocess.run([
-                'curl', '--silent', '--show-error',
-                '--output', filename, url
-            ], capture_output=True, text=True)
-            
-            if result.returncode == 0:
-                print(f"✅ Успешно скачано: {filename}")
-                return True
-            else:
-                print(f"❌ Ошибка скачивания {filename}: {result.stderr}")
-                return False
-        except FileNotFoundError:
-            print("❌ Ни wget, ни curl не найдены. Установите один из них.")
+        print("❌ curl не найден. Установите curl.")
+        return False
+    except Exception as e:
+        print(f"❌ Произошла ошибка при скачивании: {e}")
+        return False
+
+def is_valid_video(file_path: str) -> bool:
+    """Проверяет, является ли файл валидным видео с помощью ffprobe."""
+    try:
+        # Проверяем наличие видеопотока в файле
+        check_cmd = ['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_type', '-of', 'default=noprint_wrappers=1:nokey=1', file_path]
+        result = subprocess.run(check_cmd, capture_output=True, text=True)
+        
+        if result.returncode == 0 and 'video' in result.stdout:
+            return True
+        else:
             return False
+    except FileNotFoundError:
+        print("❌ ffprobe не найден. Установите ffmpeg для работы с видео.")
+        return False
+    except Exception as e:
+        print(f"❌ Ошибка при проверке файла: {e}")
+        return False
 
 def trim_video(input_file: str, output_file: str) -> bool:
     """Обрезает последние 7 секунд из видео"""
-    print(f"✂️  Обрезаю последние 7 секунды: {input_file}")
+    print(f"✂️  Обрезаю последние 7 секунды: {os.path.basename(input_file)}")
     
     try:
         # Получаем длительность видео
@@ -105,7 +119,7 @@ def trim_video(input_file: str, output_file: str) -> bool:
         
         try:
             total_duration = float(result.stdout.strip())
-        except ValueError:
+        except (ValueError, IndexError):
             print(f"❌ Не удалось определить длительность видео")
             return False
         
@@ -129,7 +143,7 @@ def trim_video(input_file: str, output_file: str) -> bool:
                 print(f"❌ Ошибка обрезки видео: {result.stderr}")
                 return False
         
-        print(f"✅ Видео обрезано: {output_file}")
+        print(f"✅ Видео обрезано: {os.path.basename(output_file)}")
         return True
         
     except FileNotFoundError:
@@ -138,7 +152,7 @@ def trim_video(input_file: str, output_file: str) -> bool:
 
 def concat_videos(input_files: List[str], output_file: str) -> bool:
     """Объединяет несколько видео в одно"""
-    print(f"🔗 Объединяю {len(input_files)} видео в {output_file}")
+    print(f"🔗 Объединяю {len(input_files)} видео в {os.path.basename(output_file)}")
     
     try:
         # Создаем временный файл со списком видео
@@ -160,7 +174,7 @@ def concat_videos(input_files: List[str], output_file: str) -> bool:
         os.unlink(concat_list_file)
         
         if result.returncode == 0:
-            print(f"✅ Видео успешно объединены: {output_file}")
+            print(f"✅ Видео успешно объединены: {os.path.basename(output_file)}")
             return True
         else:
             print(f"❌ Ошибка объединения видео: {result.stderr}")
@@ -197,7 +211,6 @@ def main():
     
     print(f"📁 Рабочая директория: {work_dir}")
     
-    # Скачиваем видео
     downloaded_files = []
     trimmed_files = []
     
@@ -212,7 +225,13 @@ def main():
         # Скачиваем видео
         downloaded_file = work_dir / f"downloaded_{order:02d}_{clip_id}.mp4"
         if not download_video(url, str(downloaded_file)):
-            print(f"⚠️  Пропускаю клип {order}")
+            print(f"⚠️  Пропускаю клип {order} из-за ошибки скачивания.")
+            continue
+        
+        # Проверяем, является ли скачанный файл валидным видео
+        if not is_valid_video(str(downloaded_file)):
+            print(f"❌ Скачанный файл не является видео. Пропускаю клип {order}.")
+            os.unlink(downloaded_file) # Удаляем невалидный файл
             continue
         
         downloaded_files.append(downloaded_file)
@@ -245,8 +264,9 @@ def main():
             sys.exit(1)
     
     # Очищаем временные файлы
-    print(f"\n🧹 Очищаю временные файлы...")
-    for temp_file in downloaded_files + trimmed_files:
+    print(f"\n🧹 Очищаю все промежуточные файлы...")
+    all_temp_files = downloaded_files + trimmed_files
+    for temp_file in all_temp_files:
         if temp_file.exists() and temp_file != output_filename:
             temp_file.unlink()
     
