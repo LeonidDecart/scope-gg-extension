@@ -1,0 +1,11 @@
+/* Scope.gg Helper Extension Styles */
+
+/* Hide the floating button by default - it will be shown by content script */
+.extension-trigger {
+    display: none;
+}
+
+/* Ensure modal has high z-index */
+#scopeggModal {
+    z-index: 2147483647 !important;
+}
