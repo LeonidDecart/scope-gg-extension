@@ -872,22 +872,8 @@
                 opponentPov: opponentPovCheckbox.checked
             };
 
-            if (existingClips.length > 0) {
-                showConfirmationModal(
-                    "Эта компиляция уже была создана. Вы уверены, что хотите создать дубликат?",
-                    () => {
-                        document.body.removeChild(modal);
-                        startRecording(matchId, steamID, playerName, options, matchTime, mapName);
-                    },
-                    () => {
-                        document.body.removeChild(modal);
-                        showMainReportModal();
-                    }
-                );
-            } else {
-                document.body.removeChild(modal);
-                startRecording(matchId, steamID, playerName, options, matchTime, mapName);
-            }
+            document.body.removeChild(modal);
+            startRecording(matchId, steamID, playerName, options, matchTime, mapName);
         });
 
         modal.querySelector('#closeModal').addEventListener('click', () => {
