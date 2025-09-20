@@ -524,12 +524,12 @@
                 <div class="video-grid">
                     <div class="video-column">
                         <h4>POV игрока</h4>
-                        <button id="copyPlayerPovBtn" class="start-button" style="margin-bottom: 10px; width: 100%;">📋 Скопировать данные POV игрока</button>
+                        <button id="copyPlayerPovBtn" class="start-button" style="margin-bottom: 10px; width: 100%;">📋 Скопировать данные</button>
                         <div id="playerPovColumn"></div>
                     </div>
                     <div class="video-column">
                         <h4>POV оппонента</h4>
-                        <button id="copyOpponentPovBtn" class="start-button" style="margin-bottom: 10px; width: 100%;">📋 Скопировать данные POV оппонента</button>
+                        <button id="copyOpponentPovBtn" class="start-button" style="margin-bottom: 10px; width: 100%;">📋 Скопировать данные</button>
                         <div id="opponentPovColumn"></div>
                     </div>
                 </div>
