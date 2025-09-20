@@ -823,7 +823,7 @@
         if (existingClips.length > 0) {
             alertMessage = `<div class="alert-message">⚠️ Для этого игрока в этом матче уже создавались компиляции. Создать дубликат?</div>`;
         }
-
+    
         modalContent.innerHTML = `
             <span id="closeModal" class="back-button">&times;</span>
             <h2>Опции записи для ${playerName}</h2>
@@ -841,41 +841,54 @@
                     <label><input type="checkbox" id="opponentPov"> POV оппонента</label>
                 </div>
                 <br>
+                <h3>Количество событий в группе</h3>
+                <input type="number" id="eventsPerGroup" min="1" max="9" value="9" style="
+                    background-color: #40444b;
+                    color: white;
+                    border: 1px solid #4f545c;
+                    border-radius: 5px;
+                    padding: 8px;
+                    width: 100px;
+                ">
+                <br><br>
                 <button id="startButton" class="start-button">Начать запись</button>
             </div>
         `;
-
+    
         const startButton = modal.querySelector('#startButton');
         const recordKillsCheckbox = modal.querySelector('#recordKills');
         const recordDeathsCheckbox = modal.querySelector('#recordDeaths');
         const playerPovCheckbox = modal.querySelector('#playerPov');
         const opponentPovCheckbox = modal.querySelector('#opponentPov');
-
+        const eventsPerGroupInput = modal.querySelector('#eventsPerGroup');
+    
         function checkValidity() {
             const isEventSelected = recordKillsCheckbox.checked || recordDeathsCheckbox.checked;
             const isPovSelected = playerPovCheckbox.checked || opponentPovCheckbox.checked;
             startButton.disabled = !(isEventSelected && isPovSelected);
         }
-
+    
         recordKillsCheckbox.addEventListener('change', checkValidity);
         recordDeathsCheckbox.addEventListener('change', checkValidity);
         playerPovCheckbox.addEventListener('change', checkValidity);
         opponentPovCheckbox.addEventListener('change', checkValidity);
-
+    
         checkValidity();
-
+    
         startButton.addEventListener('click', () => {
+            const eventsPerGroup = parseInt(eventsPerGroupInput.value) || 9;
             const options = {
                 recordKills: recordKillsCheckbox.checked,
                 recordDeaths: recordDeathsCheckbox.checked,
                 playerPov: playerPovCheckbox.checked,
-                opponentPov: opponentPovCheckbox.checked
+                opponentPov: opponentPovCheckbox.checked,
+                eventsPerGroup: eventsPerGroup
             };
-
+    
             document.body.removeChild(modal);
             startRecording(matchId, steamID, playerName, options, matchTime, mapName);
         });
-
+    
         modal.querySelector('#closeModal').addEventListener('click', () => {
             document.body.removeChild(modal);
             showMainReportModal();
@@ -1377,11 +1390,11 @@
         async processAndRecord() {
             try {
                 const { killEvents, mapName, matchTime } = await this.getMatchData();
-
+        
                 if (!mapName || !matchTime) {
                     throw new Error("Не удалось получить данные о матче. Запись невозможна.");
                 }
-
+        
                 const filteredEvents = killEvents.filter(event => {
                     const isKill = event.killerSteamID == this.steamID;
                     const isDeath = event.victimSteamID == this.steamID;
@@ -1390,16 +1403,17 @@
                 }).map(event => ({
                     index: event.index
                 }));
-
+        
                 if (filteredEvents.length === 0) {
                     throw new Error("Нет подходящих событий для создания компиляции с выбранными опциями.");
                 }
-
+        
+                const eventsPerGroup = this.options.eventsPerGroup || 9;
                 const groupedEvents = [];
-                for (let i = 0; i < filteredEvents.length; i += 9) {
-                    groupedEvents.push(filteredEvents.slice(i, i + 9));
+                for (let i = 0; i < filteredEvents.length; i += eventsPerGroup) {
+                    groupedEvents.push(filteredEvents.slice(i, i + eventsPerGroup));
                 }
-
+        
                 let eventText = '';
                 if (this.options.recordKills && this.options.recordDeaths) {
                     eventText = '[Kills/Deaths]';
@@ -1408,14 +1422,14 @@
                 } else if (this.options.recordDeaths) {
                     eventText = '[Deaths]';
                 }
-
+        
                 let totalPovs = 0;
                 if (this.options.playerPov) totalPovs++;
                 if (this.options.opponentPov) totalPovs++;
                 
                 const totalSteps = groupedEvents.length * totalPovs;
                 let currentStep = 0;
-
+        
                 for (const [groupIndex, eventGroup] of groupedEvents.entries()) {
                     const baseTitle = `[${formatDate(this.matchTime)}][${this.mapName}][${this.playerName}] ${eventText} Part ${groupIndex + 1}`;
                     
@@ -1432,7 +1446,7 @@
                         await new Promise(resolve => setTimeout(resolve, 500));
                         currentStep++;
                     }
-
+        
                     if (this.options.opponentPov) {
                         const povTitle = `${baseTitle} [Opponent POV]`;
                         this.progressModal.update(currentStep, totalSteps, `Обработка группы ${groupIndex + 1}/${groupedEvents.length} (POV оппонента)...`);
@@ -1447,7 +1461,7 @@
                         currentStep++;
                     }
                 }
-
+        
             } catch (error) {
                 console.error("Ошибка в processAndRecord:", error);
                 this.progressModal.close();
