@@ -339,8 +339,60 @@
         background-color: #5b6eae;
         transform: scale(1.1);
       }
-    `;
+    
+    .delete-button {
+        background-color: #f04747 !important;
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-size: 0.9em;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: background-color 0.2s;
+    }
+    .delete-button:hover {
+        background-color: #d83c3c !important;
+    }
+    .confirmation-dialog {
+        background-color: #36393f;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 15px;
+        border-left: 4px solid #f04747;
+    }
+    .confirmation-buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    .confirmation-buttons button {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .confirm-delete {
+        background-color: #f04747;
+        color: white;
+    }
+    .cancel-delete {
+        background-color: #99aab5;
+        color: white;
+    }
+      `;
 
+    function deleteClips(clipIds) {
+        try {
+            const clips = getSavedClips();
+            const updatedClips = clips.filter(clip => !clipIds.includes(clip.clipId));
+            localStorage.setItem('scopegg_compilations', JSON.stringify(updatedClips));
+            return true;
+        } catch (e) {
+            console.error("Ошибка при удалении клипов:", e);
+            return false;
+        }
+    }
     // Inject styles
     function injectStyles() {
         const styleSheet = document.createElement("style");
@@ -533,26 +585,68 @@
                         <div id="opponentPovColumn"></div>
                     </div>
                 </div>
+                <div id="deleteSection" style="margin-top: 20px; padding: 15px; background-color: #36393f; border-radius: 8px;">
+                    <h3 style="color: #f04747; margin-top: 0;">Управление компиляцией</h3>
+                    <p style="margin-bottom: 10px; color: #b9bbbe;">Здесь вы можете удалить все клипы этой компиляции</p>
+                    <button id="deleteCompilationBtn" class="delete-button">🗑️ Удалить компиляцию</button>
+                    <div id="deleteConfirmation" class="confirmation-dialog" style="display: none;">
+                        <p style="color: #f04747; font-weight: bold;">⚠️ Вы уверены, что хотите удалить эту компиляцию?</p>
+                        <p style="color: #b9bbbe;">Будет удалено ${playerData.clips.length} клипов. Это действие нельзя отменить.</p>
+                        <div class="confirmation-buttons">
+                            <button id="confirmDeleteBtn" class="confirm-delete">Да, удалить</button>
+                            <button id="cancelDeleteBtn" class="cancel-delete">Отмена</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
-
+    
         const playerColumn = modalContent.querySelector('#playerPovColumn');
         const opponentColumn = modalContent.querySelector('#opponentPovColumn');
         const copyPlayerPovBtn = modalContent.querySelector('#copyPlayerPovBtn');
         const copyOpponentPovBtn = modalContent.querySelector('#copyOpponentPovBtn');
-
+        const deleteButton = modalContent.querySelector('#deleteCompilationBtn');
+        const deleteConfirmation = modalContent.querySelector('#deleteConfirmation');
+        const confirmDeleteBtn = modalContent.querySelector('#confirmDeleteBtn');
+        const cancelDeleteBtn = modalContent.querySelector('#cancelDeleteBtn');
+    
         const playerClips = playerData.clips.filter(c => c.type === 'playerPov');
         const opponentClips = playerData.clips.filter(c => c.type === 'opponentPov');
-
+        const allClipIds = playerData.clips.map(c => c.clipId);
+    
         // Обработчики кнопок копирования
         copyPlayerPovBtn.addEventListener('click', () => {
             copyClipsToClipboard(playerClips, 'POV игрока');
         });
-
+    
         copyOpponentPovBtn.addEventListener('click', () => {
             copyClipsToClipboard(opponentClips, 'POV оппонента');
         });
-
+    
+        // Обработчики удаления
+        deleteButton.addEventListener('click', () => {
+            deleteConfirmation.style.display = 'block';
+            deleteButton.style.display = 'none';
+        });
+    
+        confirmDeleteBtn.addEventListener('click', () => {
+            const success = deleteClips(allClipIds);
+            if (success) {
+                showNotification(`Удалено ${playerData.clips.length} клипов компиляции`);
+                document.body.removeChild(modal);
+                showMainReportModal();
+            } else {
+                showNotification('Ошибка при удалении компиляции', true);
+                deleteConfirmation.style.display = 'none';
+                deleteButton.style.display = 'block';
+            }
+        });
+    
+        cancelDeleteBtn.addEventListener('click', () => {
+            deleteConfirmation.style.display = 'none';
+            deleteButton.style.display = 'block';
+        });
+    
         // Скрываем кнопки, если нет клипов
         if (playerClips.length === 0) {
             copyPlayerPovBtn.style.display = 'none';
@@ -560,21 +654,21 @@
         if (opponentClips.length === 0) {
             copyOpponentPovBtn.style.display = 'none';
         }
-
+    
         playerClips.forEach(clip => {
             playerColumn.appendChild(createVideoCard(clip));
         });
         if (playerClips.length === 0) {
             playerColumn.innerHTML += `<p class="message-text">Нет видео</p>`;
         }
-
+    
         opponentClips.forEach(clip => {
             opponentColumn.appendChild(createVideoCard(clip));
         });
         if (opponentClips.length === 0) {
             opponentColumn.innerHTML += `<p class="message-text">Нет видео</p>`;
         }
-
+    
         modal.querySelector('#closeModal').addEventListener('click', () => {
             document.body.removeChild(modal);
             showMainReportModal();
@@ -1189,7 +1283,7 @@
             <h2>${matchData.matchTitle}</h2>
             <div class="report-container" id="playersContainer"></div>
         `;
-
+    
         const playersContainer = modalContent.querySelector('#playersContainer');
         const players = Object.values(matchData.players);
         
@@ -1199,6 +1293,7 @@
             playerSection.innerHTML = `
                 <h3 style="color: #7289da; margin-top: 0;">${player.playerName} (Steam ID: ${player.steamID})</h3>
                 <p>Клипов: ${player.clips.length}</p>
+                <button class="delete-button" data-steamid="${player.steamID}" style="margin-bottom: 15px;">🗑️ Удалить компиляцию игрока</button>
                 <div class="video-grid">
                     <div class="video-column">
                         <h4>POV игрока</h4>
@@ -1213,9 +1308,28 @@
             
             const playerPovDiv = playerSection.querySelector('.player-pov-clips');
             const opponentPovDiv = playerSection.querySelector('.opponent-pov-clips');
+            const deleteButton = playerSection.querySelector('.delete-button');
             
             const playerPovClips = player.clips.filter(c => c.type === 'playerPov');
             const opponentPovClips = player.clips.filter(c => c.type === 'opponentPov');
+            const allClipIds = player.clips.map(c => c.clipId);
+            
+            // Обработчик удаления для отдельного игрока
+            deleteButton.addEventListener('click', () => {
+                if (confirm(`Удалить компиляцию игрока ${player.playerName}? (${player.clips.length} клипов)`)) {
+                    const success = deleteClips(allClipIds);
+                    if (success) {
+                        showNotification(`Удалена компиляция игрока ${player.playerName}`);
+                        // Обновляем модальное окно
+                        playerSection.remove();
+                        if (playersContainer.children.length === 0) {
+                            playersContainer.innerHTML = `<p class="message-text">Компиляции удалены</p>`;
+                        }
+                    } else {
+                        showNotification('Ошибка при удалении компиляции', true);
+                    }
+                }
+            });
             
             playerPovClips.forEach(clip => {
                 playerPovDiv.appendChild(createVideoCard(clip));
@@ -1233,7 +1347,7 @@
             
             playersContainer.appendChild(playerSection);
         });
-
+    
         modal.querySelector('#closeModal').addEventListener('click', () => {
             document.body.removeChild(modal);
             showMatchesViewModal();
