@@ -513,7 +513,11 @@
                 progressBarFill.innerText = `${percentage}%`;
             },
             close: () => {
-                document.body.removeChild(modal);
+                try {
+                    document.body.removeChild(modal);
+                } catch (error) {
+                    console.error("Ошибка при закрытии модального окна:", error);
+                }
             }
         };
     }
@@ -1479,7 +1483,14 @@
                             "SteamID": "undefimed"
                         };
                     }
-                    const victim = playersDict[killEvent.Victim];
+
+                    let victim = playersDict[killEvent.Victim];
+                    if (!victim) {
+                        victim = {
+                            "Name": "undefiled",
+                            "SteamID": "undefimed"
+                        };
+                    }
 
                     return {
                         round: killEvent.RoundIndexMatch + 1,
